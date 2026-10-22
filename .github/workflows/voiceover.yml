@@ -1,0 +1,42 @@
+name: voiceover
+
+# Makes the ElevenLabs voiceover clips for the Feedback Call Playbook (training/) and commits them.
+# Runs when the narration lines change, or by hand (Actions > voiceover > Run workflow) to try another voice.
+
+on:
+  push:
+    paths:
+      - training/lines.json
+  workflow_dispatch:
+    inputs:
+      voice_id:
+        description: "ElevenLabs voice ID (blank = Sarah)"
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: voiceover
+  cancel-in-progress: false
+
+jobs:
+  voice:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Make voice clips
+        env:
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          VOICE_ID: ${{ inputs.voice_id }}
+        run: node training/voiceover.mjs
+      - name: Commit clips
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add training/audio
+          git diff --cached --quiet || (git commit -m "Voiceover clips" && git push)
