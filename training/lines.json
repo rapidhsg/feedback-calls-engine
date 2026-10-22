@@ -1,5 +1,5 @@
 [
- "Call from your GHL line.",
+ "Call from your Gorilla Engage line.",
  "No answer. Hang up first.",
  "Every customer who got a price yesterday and didn't sign gets a call from you.",
  "After 8:45 AM, open Opportunities.",
@@ -13,7 +13,7 @@
  "Read the rep's notes so you know what came up at the appointment.",
  "The AccuLynx link opens the job if you need more detail.",
  "The form link is what you fill out during the call. Have it ready.",
- "Call them from your GHL line.",
+ "Call them from your Gorilla Engage line.",
  "They picked up. Go to Tasks and open the form link.",
  "Their name and phone are already filled in. Don't change them. That's how the form finds the right customer.",
  "Ask the questions in order and type their answers as they talk.",
@@ -22,6 +22,8 @@
  "Submitting posts the summary to #sales-feedback so the sales team sees it.",
  "The card moves to Call Completed on its own.",
  "Never drag a card to Call Completed yourself. If you do, nothing posts to Slack.",
+ "Submitting also marks the card Won. Here, Won just means the call is done, not that they signed.",
+ "That's it for this customer. The rep and the sales manager follow up from the Slack post.",
  "Same call, same form. If they have a problem with the rep:",
  "Under Where are you at, pick Rep issue.",
  "It still posts to Slack, and the card goes to Send to Sales Manager.",
@@ -38,5 +40,9 @@
  "Replies and callbacks come to your line.",
  "Whatever stage the card is in, open the task and use the form like a normal call.",
  "Submit posts to Slack and moves the card to Call Completed, even from ATC 2.",
+ "Every form you submit counts as one finished feedback call.",
+ "You get paid per form submitted. This dashboard adds them up by day and by week.",
+ "Only submit the form when you actually talked to the customer. A missed call goes to ATC, not the form.",
+ "One form per conversation. Don't submit twice for the same call.",
  "That's the whole routine. Every morning, every situation."
 ]
