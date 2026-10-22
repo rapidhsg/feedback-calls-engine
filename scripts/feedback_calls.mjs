@@ -30,7 +30,25 @@ if (!ACX_KEY || !GHL_KEY) { console.error("Missing ACCULYNX_API_KEY or GHL_FEEDB
 const F = {
   apptDate: "DubrvXCvwMOvyo28kkMC", rep: "6nsdUvNaBALF6eCnc4tO", estimate: "4i3u5qdz8CoFEkwxlJCR",
   jobId: "gG5Noz1yy3yoowHvPfBw", jobLink: "l15ivcgE0z6LvxVyPopY", repNotes: "82JoodsTGn6ixcT7LSOY",
+  formLink: "O752XreN3WP4mQVi9ikR",
 };
+// Kelly's call form. The link is built here, fully encoded, because GHL task text cuts a link off at the first space.
+const FORM_URL = "https://api.leadconnectorhq.com/widget/form/dyzdc8PS10DBG5s1YE62";
+const formLinkFor = (first, last, phone) => `${FORM_URL}?` + new URLSearchParams({
+  first_name: first || "", last_name: last || "", phone: phone ? `+1${phone}` : "" }).toString();
+// The call task text FC 1 writes (kept here only to repair tasks created before the links were fixed)
+const NO_ANSWER = "No answer? Hang up first, then move the card to ATC 1 (a text and email go out from you). Second miss, move it to ATC 2. Never reached after that, move it to No Contact.";
+async function fixTasks(contactId, formLink) {
+  const tasks = (await ghl(`/contacts/${contactId}/tasks`))?.tasks || [];
+  for (const t of tasks) {
+    if (t.completed || !/^Feedback call:/i.test(t.title || "")) continue;
+    const body = String(t.body || "")
+      .replace(/AccuLynx job:[ \t]*(\S+)/, "AccuLynx job:\n$1")
+      .replace(/https:\/\/api\.leadconnectorhq\.com\/widget\/form\/[^\n]*/, formLink)
+      .replace(/^No answer\?.*$/m, NO_ANSWER);
+    if (body !== t.body) { await ghl(`/contacts/${contactId}/tasks/${t.id}`, { method: "PUT", body: { body } }); console.log(`  fixed task links: ${t.title}`); }
+  }
+}
 // Kelly's answers from the last call, cleared each time a new feedback call is loaded
 const ANSWERS = ["zNWVwtCCKOQ6Mv2tTO8E", "0JUYhK2FMYMlUnHTjCNh", "j0790m84QI9KaYlJuPwk", "rQdKaIzsQPYWDXTCPMZF",
   "asRnrt2Rk02kRaNkQpN4", "apW5ZnYtzJr774PzNuLf", "d4uP2nFfIMibDb7yKWZB", "RGuaLO0lnrDFq6UTBJXx"];
@@ -162,11 +180,18 @@ for (const j of jobs) {
     if (!ac || (!ac.phones.length && !ac.emails.length)) { problems.push(`${who}: no phone or email in AccuLynx ${link}`); continue; }
 
     let id = await findContact(ac.phones, ac.emails), isNew = false;
+    const formLink = formLinkFor(ac.first, ac.last, ac.phones[0]);
     if (id) {
       const cur = (await ghl(`/contacts/${id}`))?.contact;
       const val = (fid) => (cur?.customFields || []).find((x) => x.id === fid)?.value;
       if (val(F.jobId) === guid && String(val(F.apptDate) || "").slice(0, 10) === acxDay(j["Initial Appointment Date"]) && (cur?.tags || []).length) {
-        skipped++; console.log(`skip (already loaded): ${who}`); continue;
+        skipped++; console.log(`skip (already loaded): ${who}`);
+        // Already loaded: just make sure the form link field and the call task's links are the working kind
+        if (!DRY) {
+          if (val(F.formLink) !== formLink) await ghl(`/contacts/${id}`, { method: "PUT", body: { customFields: [{ id: F.formLink, field_value: formLink }] } });
+          await fixTasks(id, formLink);
+        }
+        continue;
       }
     }
     const notes = [j["POST APPOINTMENT NOTES #1"], j["POST APPOINTMENT NOTES #2"]].map((s) => String(s || "").trim()).filter(Boolean).join("\n\n");
@@ -177,6 +202,7 @@ for (const j of jobs) {
       { id: F.jobId, field_value: guid },
       { id: F.jobLink, field_value: link },
       { id: F.repNotes, field_value: notes },
+      { id: F.formLink, field_value: formLink },
       ...ANSWERS.map((fid) => ({ id: fid, field_value: "" })),
     ];
 
