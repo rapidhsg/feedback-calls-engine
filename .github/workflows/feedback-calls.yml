@@ -17,7 +17,7 @@ on:
         type: boolean
         default: true
       date:
-        description: "Appointment day to load, YYYY-MM-DD (blank = yesterday)"
+        description: "Appointment day to load: YYYY-MM-DD, or a range YYYY-MM-DD:YYYY-MM-DD (blank = yesterday)"
         type: string
         default: ""
 

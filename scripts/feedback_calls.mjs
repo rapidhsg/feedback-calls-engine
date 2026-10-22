@@ -97,7 +97,15 @@ if (!process.env.FC_DATE && process.env.GITHUB_EVENT_NAME === "schedule" && nyNo
 }
 const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const back = (n) => { const d = new Date(nyNow); d.setDate(d.getDate() - n); return isoDay(d); };
-const days = process.env.FC_DATE ? [process.env.FC_DATE] : [back(1)];   // every day: yesterday
+// FC_DATE: blank = yesterday, "YYYY-MM-DD" = that day, "YYYY-MM-DD:YYYY-MM-DD" = every day in that range
+function dayRange(spec) {
+  const [a, b = a] = spec.split(":").map((s) => s.trim());
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(a) || !/^\d{4}-\d{2}-\d{2}$/.test(b) || a > b) { console.error(`Bad date: ${spec}`); process.exit(1); }
+  const out = []; const d = new Date(`${a}T12:00:00Z`);
+  while (d.toISOString().slice(0, 10) <= b) { out.push(d.toISOString().slice(0, 10)); d.setUTCDate(d.getUTCDate() + 1); }
+  return out;
+}
+const days = process.env.FC_DATE ? dayRange(process.env.FC_DATE) : [back(1)];   // every day: yesterday
 console.log(`Loading feedback calls for appointments on ${days.join(", ")}${DRY ? " (DRY RUN, nothing written)" : ""}`);
 
 const jobs = parseCsv(readFileSync(join(DIR, "job_export_raw_latest.csv"), "utf8")).filter((r) =>
