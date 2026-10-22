@@ -1,7 +1,7 @@
 name: feedback-calls
 
-# Every morning Mon-Sat, load yesterday's quoted appointments that didn't sign into GHL for Kelly's feedback calls.
-# Monday also loads Saturday and Sunday. See scripts/feedback_calls.mjs.
+# Every morning, 7 days a week, load yesterday's quoted appointments that didn't sign into GHL for Kelly's feedback calls.
+# See scripts/feedback_calls.mjs.
 # Runs at 8:37 AM Eastern all year: GitHub schedules are UTC, so it fires at 12:37 and 13:37 UTC and the script
 # skips the run that lands before 8 AM Eastern. A second run on the same day finds nothing new and does nothing.
 
@@ -9,7 +9,7 @@ on:
   # Schedule is OFF until the GHL form and workflows are built (a tag added before "FC 1 - Start" exists never triggers it).
   # To turn it on, remove the # from the next two lines.
   # schedule:
-  #   - cron: "37 12,13 * * 1-6"
+  #   - cron: "37 12,13 * * *"
   workflow_dispatch:
     inputs:
       dry_run:

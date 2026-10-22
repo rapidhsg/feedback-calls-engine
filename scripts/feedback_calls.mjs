@@ -1,6 +1,6 @@
 // Feedback calls: every morning, load yesterday's quoted appointments that did not sign into GoHighLevel for Kelly to call.
 //
-// Who gets loaded: Initial Appointment Date = yesterday (Monday also picks up Saturday and Sunday), quoted
+// Who gets loaded: Initial Appointment Date = yesterday (runs 7 days a week), quoted
 // (Primary Estimate Total > 0), Current Milestone = Prospect, and NOT submitted for approval. No Call Backs,
 // no Service or Upsell / Change Order work types.
 //
@@ -97,7 +97,7 @@ if (!process.env.FC_DATE && process.env.GITHUB_EVENT_NAME === "schedule" && nyNo
 }
 const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const back = (n) => { const d = new Date(nyNow); d.setDate(d.getDate() - n); return isoDay(d); };
-const days = process.env.FC_DATE ? [process.env.FC_DATE] : nyNow.getDay() === 1 ? [back(2), back(1)] : [back(1)];   // Monday: Sat + Sun
+const days = process.env.FC_DATE ? [process.env.FC_DATE] : [back(1)];   // every day: yesterday
 console.log(`Loading feedback calls for appointments on ${days.join(", ")}${DRY ? " (DRY RUN, nothing written)" : ""}`);
 
 const jobs = parseCsv(readFileSync(join(DIR, "job_export_raw_latest.csv"), "utf8")).filter((r) =>
