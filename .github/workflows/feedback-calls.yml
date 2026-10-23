@@ -6,10 +6,8 @@ name: feedback-calls
 # skips the run that lands before 8 AM Eastern. A second run on the same day finds nothing new and does nothing.
 
 on:
-  # Schedule is OFF until the GHL form and workflows are built (a tag added before "FC 1 - Start" exists never triggers it).
-  # To turn it on, remove the # from the next two lines.
-  # schedule:
-  #   - cron: "37 12,13 * * *"
+  schedule:
+    - cron: "37 12,13 * * *"
   workflow_dispatch:
     inputs:
       dry_run:
