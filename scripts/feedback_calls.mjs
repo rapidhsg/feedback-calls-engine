@@ -36,17 +36,27 @@ const F = {
 const FORM_URL = "https://api.leadconnectorhq.com/widget/form/dyzdc8PS10DBG5s1YE62";
 const formLinkFor = (first, last, phone) => `${FORM_URL}?` + new URLSearchParams({
   first_name: first || "", last_name: last || "", phone: phone ? `+1${phone}` : "" }).toString();
-// The call task text FC 1 writes (kept here only to repair tasks created before the links were fixed)
+// Rebuilds the call task for customers loaded before the links were fixed (the task body is HTML in Gorilla Engage)
 const NO_ANSWER = "No answer? Hang up first, then move the card to ATC 1 (a text and email go out from you). Second miss, move it to ATC 2. Never reached after that, move it to No Contact.";
-async function fixTasks(contactId, formLink) {
+const esc = (t) => String(t ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const P_ = (inner = "") => `<p style="margin:0px; padding-left: 0px!important;">${inner}</p>`;
+function taskHtml(d) {
+  const day = new Date(`${d.appt}T12:00:00Z`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
+  const quoted = "$" + Number(d.estimate || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const notes = d.notes ? d.notes.split(/\n+/).map((l) => P_(esc(l))).join("") : P_("(none)");
+  return [P_(`Rep: ${esc(d.rep)}`), P_(`Appointment: ${day}`), P_(`Quoted: ${quoted}`), P_(),
+    P_("Rep's notes:"), notes, P_(),
+    P_("AccuLynx job:"), P_(`<a target="_blank" rel="noopener noreferrer nofollow" href="${esc(d.link)}">${esc(d.link)}</a>`), P_(),
+    P_("Fill out the form while you're on the call:"), P_(`<a target="_blank" rel="noopener noreferrer nofollow" href="${esc(d.formLink)}">Open the feedback call form</a>`), P_(),
+    P_(esc(NO_ANSWER))].join("");
+}
+async function fixTasks(contactId, d) {
   const tasks = (await ghl(`/contacts/${contactId}/tasks`))?.tasks || [];
+  const body = taskHtml(d);
   for (const t of tasks) {
-    if (t.completed || !/^Feedback call:/i.test(t.title || "")) continue;
-    const body = String(t.body || "")
-      .replace(/AccuLynx job:[ \t]*(\S+)/, "AccuLynx job:\n$1")
-      .replace(/https:\/\/api\.leadconnectorhq\.com\/widget\/form\/[^\n]*/, formLink)
-      .replace(/^No answer\?.*$/m, NO_ANSWER);
-    if (body !== t.body) { await ghl(`/contacts/${contactId}/tasks/${t.id}`, { method: "PUT", body: { body } }); console.log(`  fixed task links: ${t.title}`); }
+    if (t.completed || !/^Feedback call:/i.test(t.title || "") || t.body === body) continue;
+    await ghl(`/contacts/${contactId}/tasks/${t.id}`, { method: "PUT", body: { body } });
+    console.log(`  fixed task: ${t.title}`);
   }
 }
 // Kelly's answers from the last call, cleared each time a new feedback call is loaded
@@ -189,7 +199,8 @@ for (const j of jobs) {
         // Already loaded: just make sure the form link field and the call task's links are the working kind
         if (!DRY) {
           if (val(F.formLink) !== formLink) await ghl(`/contacts/${id}`, { method: "PUT", body: { customFields: [{ id: F.formLink, field_value: formLink }] } });
-          await fixTasks(id, formLink);
+          await fixTasks(id, { rep: j["Primary Salesperson"] || "", appt: acxDay(j["Initial Appointment Date"]), estimate: num(j["Primary Estimate Total"]), link,
+            notes: [j["POST APPOINTMENT NOTES #1"], j["POST APPOINTMENT NOTES #2"]].map((x) => String(x || "").trim()).filter(Boolean).join("\n"), formLink });
         }
         continue;
       }

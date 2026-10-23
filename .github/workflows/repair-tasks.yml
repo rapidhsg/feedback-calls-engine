@@ -1,6 +1,6 @@
 name: repair-tasks
 
-# One-time: rerun Oct 15-21 so the 34 already-loaded call tasks get working links. Delete after it runs.
+# One-time: rerun Oct 15-21 so the 34 already-loaded call tasks get rebuilt with working links. Delete after it runs.
 
 on:
   push:
