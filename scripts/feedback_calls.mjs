@@ -192,8 +192,9 @@ for (const j of jobs) {
 
     let id = await findContact(ac.phones, ac.emails), isNew = false;
     const formLink = formLinkFor(ac.first, ac.last, ac.phones[0]);
+    let cur = null;
     if (id) {
-      const cur = (await ghl(`/contacts/${id}`))?.contact;
+      cur = (await ghl(`/contacts/${id}`))?.contact;
       const val = (fid) => (cur?.customFields || []).find((x) => x.id === fid)?.value;
       if (val(F.jobId) === guid && String(val(F.apptDate) || "").slice(0, 10) === acxDay(j["Initial Appointment Date"]) && (cur?.tags || []).length) {
         skipped++; console.log(`skip (already loaded): ${who}`);
@@ -239,7 +240,9 @@ for (const j of jobs) {
       isNew = true; created++;
     } else {
       if (DRY) { console.log(`would load: ${who}`); loaded++; continue; }
-      await ghl(`/contacts/${id}`, { method: "PUT", body: { customFields: fields } });
+      // Contacts made from a phone call can have no name, which leaves the card and task blank: fill it from AccuLynx
+      const needName = !String(cur?.firstName || "").trim() && !String(cur?.lastName || "").trim() && (ac.first || ac.last);
+      await ghl(`/contacts/${id}`, { method: "PUT", body: { customFields: fields, ...(needName ? { firstName: ac.first, lastName: ac.last } : {}) } });
     }
     // Remove then add the tag so the workflow fires even if an old feedback-call tag was left on
     await ghl(`/contacts/${id}/tags`, { method: "DELETE", body: { tags: ["feedback-call"] } }).catch(() => null);
