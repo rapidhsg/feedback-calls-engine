@@ -4,7 +4,7 @@ Loads Rapid Roofing's next-day feedback calls into GoHighLevel.
 
 ## What it does
 
-Every morning, 7 days a week, at 8:37 AM Eastern (`.github/workflows/feedback-calls.yml`):
+Every morning, 7 days a week, at 8:00 AM Eastern (`.github/workflows/feedback-calls.yml`):
 
 1. Reads the latest AccuLynx job export from `rapidhsg/rr-metrics-data` (data branch).
 2. Picks yesterday's appointments that were quoted, are still in Prospect, and were not submitted for approval. No Call Backs, Service, or Upsell / Change Order.
