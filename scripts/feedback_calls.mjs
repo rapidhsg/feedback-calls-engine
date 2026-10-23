@@ -179,6 +179,7 @@ async function findContact(phones, emails) {
 }
 
 let loaded = 0, created = 0, skipped = 0;
+const justLoaded = [];   // rebuilt with clean task text once FC 1 has created their tasks
 const problems = [];
 for (const j of jobs) {
   const guid = ((j["Job Number Url"] || "").match(/jobs\/([0-9a-f-]{36})/) || [])[1];
@@ -245,12 +246,21 @@ for (const j of jobs) {
     await ghl(`/contacts/${id}/tags`, { method: "POST", body: { tags: ["feedback-call"] } });
     loaded++;
     console.log(`${isNew ? "created + loaded" : "loaded"}: ${who}`);
+    justLoaded.push({ id, who, d: { rep: j["Primary Salesperson"] || "", appt: acxDay(j["Initial Appointment Date"]), estimate: num(j["Primary Estimate Total"]), link,
+      notes: [j["POST APPOINTMENT NOTES #1"], j["POST APPOINTMENT NOTES #2"]].map((x) => String(x || "").trim()).filter(Boolean).join("\n"), formLink } });
   } catch (e) {
     problems.push(`${who}: ${e.message} ${link}`);
     if (/HTTP 401|HTTP 403/.test(e.message)) break;   // bad key: stop instead of failing every row
   }
 }
 
+// FC 1 creates each call task a few seconds after the tag; then rewrite it so the links are real, clickable links
+if (justLoaded.length) {
+  await sleep(30000);
+  for (const x of justLoaded) {
+    try { await fixTasks(x.id, x.d); } catch (e) { problems.push(`${x.who}: task text not rebuilt (${e.message})`); }
+  }
+}
 console.log(`Done: ${loaded} loaded (${created} new contacts), ${skipped} already loaded, ${problems.length} problems`);
 if (problems.length) {
   console.error("Problems (Kelly can still call these from AccuLynx):\n" + problems.join("\n"));
