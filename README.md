@@ -12,9 +12,21 @@ Every morning, 7 days a week, at 8:00 AM Eastern (`.github/workflows/feedback-ca
 4. Finds them in GHL by phone, then email. If they aren't in GHL, creates them like our prospects: tag `prospect`, lead source, trade type, job category, work type, address.
 5. Fills the Feedback fields (appointment date, rep, estimate, AccuLynx job ID and link, rep's appointment notes), clears the last call's answers, and adds the `feedback-call` tag. That tag starts the Feedback Calls workflows in GHL.
 
-Anyone already loaded for that job and day is skipped, so a second run never double-loads. Customer phones and emails are never printed or saved. It never writes to AccuLynx.
+Anyone already loaded for that job and day is skipped, so a second run never double-loads. Customer phones and emails are never printed or saved. The morning load never writes to AccuLynx. Posting Kelly's answers is a separate job, below.
 
 If a customer can't be loaded, the run shows a red X and GitHub emails the repo owner with the name and AccuLynx link, so Kelly can still call them.
+
+## Posting Kelly's answers to AccuLynx
+
+Every 15 minutes (`.github/workflows/post-to-acculynx.yml`, `scripts/post_to_acculynx.mjs`):
+
+1. Reads new submissions of the "FC - Feedback Call Form" in GHL.
+2. Finds the AccuLynx job from the contact's Feedback AccuLynx Job ID field.
+3. Posts the answers as a message on that job and tags the rep with an @mention.
+
+Each form posts once. Posted forms are listed in `state/acculynx_posted.json`, which the workflow commits back. A form for a contact with no AccuLynx job is reported once (red X and an email) and then skipped. Customer phones and emails are never posted. Needs the GHL "Feedback Calls" integration to have View Forms.
+
+To test: Actions > post-to-acculynx > Run workflow. Dry run is on by default (shows what it would post, writes nothing).
 
 ## Test or reload a day
 
@@ -23,6 +35,6 @@ Actions > feedback-calls > Run workflow. Dry run is on by default (shows who it 
 ## Secrets
 
 - `ACCULYNX_API_KEY`
-- `GHL_FEEDBACK_TOKEN`: GHL Private Integration "Feedback Calls" for Rapid Roofing & Gutters (View Contacts, Edit Contacts, View Tags)
+- `GHL_FEEDBACK_TOKEN`: GHL Private Integration "Feedback Calls" for Rapid Roofing & Gutters (View Contacts, Edit Contacts, View Tags, View Forms)
 
 If `rapidhsg/rr-metrics-data` is ever made private, add a read token for it and pass it to the second checkout step.
