@@ -1,0 +1,40 @@
+name: post-notes
+
+# Every 15 minutes: post newly submitted feedback call forms to the customer's AccuLynx job as a note.
+# See scripts/post_notes.mjs. A push of this file or the script does a dry run (logs only); by hand defaults to dry run.
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  push:
+    paths:
+      - .github/workflows/post-notes.yml
+      - scripts/post_notes.mjs
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (show what it would post, write nothing)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: post-notes
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Post feedback notes to AccuLynx
+        env:
+          ACCULYNX_API_KEY: ${{ secrets.ACCULYNX_API_KEY }}
+          GHL_FEEDBACK_TOKEN: ${{ secrets.GHL_FEEDBACK_TOKEN }}
+          DRY_RUN: ${{ (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run)) && '1' || '' }}
+        run: node scripts/post_notes.mjs
