@@ -212,7 +212,8 @@ for (const j of jobs) {
         // Already loaded: make sure the form link field is right and the call note is there
         if (!DRY) {
           if (val(F.formLink) !== formLink) await ghl(`/contacts/${id}`, { method: "PUT", body: { customFields: [{ id: F.formLink, field_value: formLink }] } });
-          if (!val("0JUYhK2FMYMlUnHTjCNh")) await ensureNote(id, {   // only cards Kelly hasn't finished rep: j["Primary Salesperson"] || "", appt: acxDay(j["Initial Appointment Date"]), estimate: num(j["Primary Estimate Total"]), link,
+          // only cards Kelly hasn't finished get a note
+          if (!val("0JUYhK2FMYMlUnHTjCNh")) await ensureNote(id, { rep: j["Primary Salesperson"] || "", appt: acxDay(j["Initial Appointment Date"]), estimate: num(j["Primary Estimate Total"]), link,
             notes: [j["POST APPOINTMENT NOTES #1"], j["POST APPOINTMENT NOTES #2"]].map((x) => String(x || "").trim()).filter(Boolean).join("\n"), formLink });
         }
         continue;
