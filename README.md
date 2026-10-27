@@ -11,8 +11,9 @@ Every morning, 7 days a week, at 8:00 AM Eastern (`.github/workflows/feedback-ca
 3. Gets each customer's name, phone and email from AccuLynx.
 4. Finds them in GHL by phone, then email. If they aren't in GHL, creates them like our prospects: tag `prospect`, lead source, trade type, job category, work type, address.
 5. Fills the Feedback fields (appointment date, rep, estimate, AccuLynx job ID and link, rep's appointment notes), clears the last call's answers, and adds the `feedback-call` tag. That tag starts the Feedback Calls workflows in GHL.
+6. Posts one pinned note on the contact for Kelly: rep, appointment, quote, rep's notes, AccuLynx link and the call form link. There is no call task; Kelly works the To Call column of the Feedback Calls pipeline.
 
-Anyone already loaded for that job and day is skipped, so a second run never double-loads. Customer phones and emails are never printed or saved. The morning load never writes to AccuLynx. Posting Kelly's answers is a separate job, below.
+Anyone already loaded for that job and day is skipped (it only gets its call note if missing), so a second run never double-loads. Customer phones and emails are never printed or saved. The morning load never writes to AccuLynx. Posting Kelly's answers is a separate job, below.
 
 If a customer can't be loaded, the run shows a red X and GitHub emails the repo owner with the name and AccuLynx link, so Kelly can still call them.
 

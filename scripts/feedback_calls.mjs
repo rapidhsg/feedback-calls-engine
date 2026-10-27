@@ -9,7 +9,9 @@
 //   2. Find them in GHL by phone, then email. If they aren't in GHL, create them the way our prospects are set up
 //      (tag "prospect", lead source, trade type, job category, work type, address).
 //   3. Fill the Feedback job fields and clear last time's answers.
-//   4. Add the tag "feedback-call". That tag starts the "FC 1 - Start" workflow in GHL.
+//   4. Add the tag "feedback-call". That tag starts the "FC 1 - Start" workflow in GHL (creates the pipeline card).
+//   5. Post one pinned note on the contact with the rep, appointment, quote, rep's notes, AccuLynx link and form link.
+//      Kelly works the To Call column; there is no call task.
 // A contact that already has this job and appointment date loaded is skipped, so running twice never double-loads.
 //
 // Reads the AccuLynx job export from rapidhsg/rr-metrics-data (data branch). Writes to GHL only; never writes to AccuLynx.
@@ -32,31 +34,40 @@ const F = {
   jobId: "gG5Noz1yy3yoowHvPfBw", jobLink: "l15ivcgE0z6LvxVyPopY", repNotes: "82JoodsTGn6ixcT7LSOY",
   formLink: "O752XreN3WP4mQVi9ikR",
 };
-// Kelly's call form. The link is built here, fully encoded, because GHL task text cuts a link off at the first space.
+// Kelly's call form. The link is built here, fully encoded, because GHL cuts a bare link off at the first space.
 const FORM_URL = "https://api.leadconnectorhq.com/widget/form/dyzdc8PS10DBG5s1YE62";
 const formLinkFor = (first, last, phone) => `${FORM_URL}?` + new URLSearchParams({
   first_name: first || "", last_name: last || "", phone: phone ? `+1${phone}` : "" }).toString();
-// Rebuilds the call task for customers loaded before the links were fixed (the task body is HTML in Gorilla Engage)
+// Kelly's call info goes on the contact as one pinned note (shows on the card's Notes tab). No call task.
+const KELLY = "6AxS01UYtHkBMbC5YfTF";
 const NO_ANSWER = "No answer? Hang up first, then move the card to ATC 1 (a text and email go out from you). Second miss, move it to ATC 2. Never reached after that, move it to No Contact.";
 const esc = (t) => String(t ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const P_ = (inner = "") => `<p style="margin:0px; padding-left: 0px!important;">${inner}</p>`;
-function taskHtml(d) {
-  const day = new Date(`${d.appt}T12:00:00Z`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
+const A_ = (href, text) => `<a target="_blank" rel="noopener noreferrer nofollow" href="${esc(href)}">${esc(text)}</a>`;
+const longDay = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
+const noteTitle = (d) => `Feedback call: ${longDay(d.appt).replace(/, \d{4}$/, "")} appointment`;
+function noteHtml(d) {
   const quoted = "$" + Number(d.estimate || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const notes = d.notes ? d.notes.split(/\n+/).map((l) => P_(esc(l))).join("") : P_("(none)");
-  return [P_(`Rep: ${esc(d.rep)}`), P_(`Appointment: ${day}`), P_(`Quoted: ${quoted}`), P_(),
+  return [P_(`Rep: ${esc(d.rep)}`), P_(`Appointment: ${longDay(d.appt)}`), P_(`Quoted: ${quoted}`), P_(),
     P_("Rep's notes:"), notes, P_(),
-    P_("AccuLynx job:"), P_(`<a target="_blank" rel="noopener noreferrer nofollow" href="${esc(d.link)}">${esc(d.link)}</a>`), P_(),
-    P_("Fill out the form while you're on the call:"), P_(`<a target="_blank" rel="noopener noreferrer nofollow" href="${esc(d.formLink)}">Open the feedback call form</a>`), P_(),
+    P_("AccuLynx job:"), P_(A_(d.link, "Open the AccuLynx job")), P_(),
+    P_("Fill out the form while you're on the call:"), P_(A_(d.formLink, "Open the feedback call form")), P_(),
     P_(esc(NO_ANSWER))].join("");
 }
-async function fixTasks(contactId, d) {
+// Posts the note once per appointment, and closes any old-style "Feedback call:" task still open
+async function ensureNote(contactId, d) {
+  const title = noteTitle(d);
+  const notes = (await ghl(`/contacts/${contactId}/notes`))?.notes || [];
+  if (!notes.some((n) => n.title === title)) {
+    await ghl(`/contacts/${contactId}/notes`, { method: "POST", body: { title, body: noteHtml(d), pinned: true, userId: KELLY } });
+    console.log(`  note posted: ${title}`);
+  }
   const tasks = (await ghl(`/contacts/${contactId}/tasks`))?.tasks || [];
-  const body = taskHtml(d);
   for (const t of tasks) {
-    if (t.completed || !/^Feedback call:/i.test(t.title || "") || t.body === body) continue;
-    await ghl(`/contacts/${contactId}/tasks/${t.id}`, { method: "PUT", body: { body } });
-    console.log(`  fixed task: ${t.title}`);
+    if (t.completed || !/^Feedback call:/i.test(t.title || "")) continue;
+    await ghl(`/contacts/${contactId}/tasks/${t.id}/completed`, { method: "PUT", body: { completed: true } });
+    console.log(`  closed old task: ${t.title}`);
   }
 }
 // Kelly's answers from the last call, cleared each time a new feedback call is loaded
@@ -179,7 +190,7 @@ async function findContact(phones, emails) {
 }
 
 let loaded = 0, created = 0, skipped = 0;
-const justLoaded = [];   // rebuilt with clean task text once FC 1 has created their tasks
+const justLoaded = [];   // get their call note after the tag is on
 const problems = [];
 for (const j of jobs) {
   const guid = ((j["Job Number Url"] || "").match(/jobs\/([0-9a-f-]{36})/) || [])[1];
@@ -198,10 +209,10 @@ for (const j of jobs) {
       const val = (fid) => (cur?.customFields || []).find((x) => x.id === fid)?.value;
       if (val(F.jobId) === guid && String(val(F.apptDate) || "").slice(0, 10) === acxDay(j["Initial Appointment Date"]) && (cur?.tags || []).length) {
         skipped++; console.log(`skip (already loaded): ${who}`);
-        // Already loaded: just make sure the form link field and the call task's links are the working kind
+        // Already loaded: make sure the form link field is right and the call note is there
         if (!DRY) {
           if (val(F.formLink) !== formLink) await ghl(`/contacts/${id}`, { method: "PUT", body: { customFields: [{ id: F.formLink, field_value: formLink }] } });
-          await fixTasks(id, { rep: j["Primary Salesperson"] || "", appt: acxDay(j["Initial Appointment Date"]), estimate: num(j["Primary Estimate Total"]), link,
+          if (!val("0JUYhK2FMYMlUnHTjCNh")) await ensureNote(id, {   // only cards Kelly hasn't finished rep: j["Primary Salesperson"] || "", appt: acxDay(j["Initial Appointment Date"]), estimate: num(j["Primary Estimate Total"]), link,
             notes: [j["POST APPOINTMENT NOTES #1"], j["POST APPOINTMENT NOTES #2"]].map((x) => String(x || "").trim()).filter(Boolean).join("\n"), formLink });
         }
         continue;
@@ -257,11 +268,11 @@ for (const j of jobs) {
   }
 }
 
-// FC 1 creates each call task a few seconds after the tag; then rewrite it so the links are real, clickable links
+// Post each call note. The short wait lets FC 1 finish, so any task it still makes gets closed here.
 if (justLoaded.length) {
   await sleep(30000);
   for (const x of justLoaded) {
-    try { await fixTasks(x.id, x.d); } catch (e) { problems.push(`${x.who}: task text not rebuilt (${e.message})`); }
+    try { await ensureNote(x.id, x.d); } catch (e) { problems.push(`${x.who}: call note not posted (${e.message})`); }
   }
 }
 console.log(`Done: ${loaded} loaded (${created} new contacts), ${skipped} already loaded, ${problems.length} problems`);
